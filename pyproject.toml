@@ -10,7 +10,6 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.0.0,<2.5.0",
     "opencv-contrib-python>=5.0.0.93",
-    "pandas>=3.0.3",
     "tqdm>=4.68.4",
 ]
 
@@ -21,11 +20,11 @@ ubo-morph = "ubo_morph.cli:main"
 dlib = [
     "dlib>=20.0.1",
 ]
-gpu = [
-    "numba>=0.66",
-]
 mediapipe = [
     "mediapipe>=0.10.35",
+]
+cupy = [
+    "cupy-cuda12x[ctk]>=13.0",
 ]
 
 [build-system]
@@ -34,6 +33,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "pytest>=8.0",
     "ruff>=0.15.21",
     "ty>=0.0.59",
 ]

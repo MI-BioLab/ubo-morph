@@ -24,7 +24,9 @@ class DlibLandmarkExtractor(LandmarkExtractor):
     ) -> None:
         model_path = Path(model_path)
         if not model_path.is_file():
-            raise FileNotFoundError(f'Dlib shape-predictor model "{model_path}" does not exist.')
+            raise FileNotFoundError(
+                f'Dlib shape-predictor model "{model_path}" does not exist.'
+            )
         if upsample_times < 0:
             raise ValueError("upsample_times must be non-negative")
 
@@ -35,28 +37,23 @@ class DlibLandmarkExtractor(LandmarkExtractor):
 
     def _extract_points(self, image: np.ndarray) -> np.ndarray:
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        faces = list(self._detector(rgb_image, self._upsample_times))
+        faces = self._detector(rgb_image, self._upsample_times)
         if not faces:
             raise ValueError("Dlib did not detect a face in the image.")
 
-        face = max(faces, key=_rectangle_area)
+        face = max(faces, key=lambda rectangle: rectangle.area())
         shape = self._predictor(rgb_image, face)
-        point_count = int(shape.num_parts)
+        parts = shape.parts()
+        point_count = len(parts)
         if point_count < 68:
             raise ValueError(
                 "DlibLandmarkExtractor requires a 68-point shape predictor; "
                 f"the configured model returned {point_count} points."
             )
         return np.asarray(
-            [(shape.part(index).x, shape.part(index).y) for index in range(point_count)],
+            [(point.x, point.y) for point in parts],
             dtype=np.float32,
         )
-
-
-def _rectangle_area(rectangle: Any) -> int:
-    width = max(int(rectangle.right()) - int(rectangle.left()) + 1, 0)
-    height = max(int(rectangle.bottom()) - int(rectangle.top()) + 1, 0)
-    return width * height
 
 
 def _import_dlib() -> Any:

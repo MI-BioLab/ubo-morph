@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+import cv2
 import numpy as np
 
 
 def add_border_points(
     image: np.ndarray,
     points: np.ndarray,
-    point_per_border_count: int = 5,
+    points_per_border: int = 5,
 ) -> np.ndarray:
-    if point_per_border_count < 2:
-        raise ValueError("point_per_border_count must be at least 2")
+    if points_per_border < 2:
+        raise ValueError("points_per_border must be at least 2")
     height, width = image.shape[:2]
     points = np.asarray(points, dtype=np.float32)
     corners = np.array(
@@ -24,13 +25,13 @@ def add_border_points(
     x_positions = np.linspace(
         0.0,
         float(width),
-        point_per_border_count,
+        points_per_border,
         dtype=np.float32,
     )[1:-1]
     y_positions = np.linspace(
         0.0,
         float(height),
-        point_per_border_count,
+        points_per_border,
         dtype=np.float32,
     )[1:-1]
     vertical = np.column_stack(
@@ -66,6 +67,12 @@ def remove_overlapped_points(
     points1: np.ndarray,
     points2: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
+    # Two-pass duplicate removal: pass 1 drops rows that are duplicates within
+    # array1 (keeping each duplicate's *last* occurrence, via the reversed-array
+    # unique trick), applying the same row filter to array2 so the two arrays stay
+    # aligned. Pass 2 repeats the same process for array2, operating on the
+    # already-reduced arrays from pass 1. The net effect is that no row index is
+    # duplicated in either array once both passes complete.
     array1 = np.asarray(points1, dtype=np.float32)
     array2 = np.asarray(points2, dtype=np.float32)
     if len(array1) != len(array2):
@@ -76,3 +83,32 @@ def remove_overlapped_points(
         indices = np.sort(len(array) - 1 - reversed_indices)
         array1, array2 = array1[indices], array2[indices]
     return array1.copy(), array2.copy()
+
+
+def convex_hull_mask(
+    shape: tuple[int, int],
+    points: np.ndarray,
+) -> np.ndarray:
+    """Build a boolean mask of the filled convex hull of ``points``.
+
+    ``shape`` is ``(height, width)``. Returns an all-``False`` mask if there
+    are fewer than three points (a hull cannot be filled).
+    """
+    height, width = shape
+    if len(points) < 3:
+        return np.zeros((height, width), dtype=bool)
+    hull = cv2.convexHull(
+        np.asarray(points, dtype=np.float32),
+        clockwise=False,
+        returnPoints=True,
+    ).reshape(-1, 2)
+    mask = np.zeros((height, width), dtype=np.uint8)
+    if len(hull) < 3:
+        return mask.astype(bool)
+    cv2.fillConvexPoly(  # ty: ignore[no-matching-overload]
+        mask,
+        np.int32(hull),
+        [1],
+        lineType=cv2.LINE_8,
+    )
+    return mask.astype(bool)

@@ -61,7 +61,9 @@ class MediaPipeLandmarkExtractor(LandmarkExtractor):
     ) -> None:
         model_path = Path(model_path)
         if not model_path.is_file():
-            raise FileNotFoundError(f'MediaPipe face-landmarker model "{model_path}" does not exist.')
+            raise FileNotFoundError(
+                f'MediaPipe face-landmarker model "{model_path}" does not exist.'
+            )
         if max_faces < 1:
             raise ValueError("max_faces must be at least 1")
         detection_confidence = _validate_confidence(
@@ -106,11 +108,8 @@ class MediaPipeLandmarkExtractor(LandmarkExtractor):
         if not result.face_landmarks:
             raise ValueError("MediaPipe did not detect a face in the image.")
 
-        face_landmarks = max(result.face_landmarks, key=_normalized_face_area)
-        normalized_points = np.asarray(
-            [(landmark.x, landmark.y) for landmark in face_landmarks],
-            dtype=np.float32,
-        )
+        faces = [_landmark_points(face) for face in result.face_landmarks]
+        normalized_points = max(faces, key=_normalized_face_area)
         height, width = image.shape[:2]
         return normalized_points * np.array([width, height], dtype=np.float32)
 
@@ -120,11 +119,14 @@ class MediaPipeLandmarkExtractor(LandmarkExtractor):
             self._landmarker = None
 
 
-def _normalized_face_area(landmarks: Any) -> float:
-    points = np.asarray(
+def _landmark_points(landmarks: Any) -> np.ndarray:
+    return np.asarray(
         [(landmark.x, landmark.y) for landmark in landmarks],
         dtype=np.float32,
     )
+
+
+def _normalized_face_area(points: np.ndarray) -> float:
     span = np.ptp(points, axis=0)
     return float(span[0] * span[1])
 

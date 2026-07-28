@@ -1,13 +1,7 @@
 # ubo-morph
 
-`ubo-morph` morphs two BGR `uint8` face images from corresponding landmark
-points. Its compute-heavy operations expose a common `device: str` argument.
-The supported values are exactly `"cpu"` and `"gpu"`.
-
-The CPU path is implemented with OpenCV. The GPU path is deliberately left as
-private Numba implementation hooks and currently raises `NotImplementedError`.
-Numba is an optional dependency, so backend modules are loaded lazily only after
-a device is selected.
+`ubo-morph` uses NumPy and OpenCV to morph two BGR `uint8` face images from
+corresponding landmark points.
 
 ## Public API
 
@@ -16,7 +10,50 @@ The high-level entry points are available directly from `ubo_morph`:
 ```python
 from ubo_morph import morph_images, morph_with_landmarks
 
-result = morph_images(image1, image2, extractor, device="cpu")
+result = morph_images(image1, image2, extractor)
+
+# Control the number of points added to each image edge, or disable them.
+result = morph_images(image1, image2, extractor, points_per_border=7)
+result = morph_images(image1, image2, extractor, points_per_border=0)
+
+# Cap the shortest detector-input side at 640 px, then morph full-size inputs.
+result = morph_images(
+    image1,
+    image2,
+    extractor,
+    landmark_extraction_short_side=640,
+)
+
+# Select one of the exact backend names: "cpu" or "cupy".
+result = morph_images(image1, image2, extractor, backend="cupy")
+```
+
+`cpu` is the default. Backend selection is explicit: unavailable accelerators
+raise an error and never fall back to CPU.
+
+## Backend interface
+
+The backend contract and lazy selector are available from `ubo_morph.morphing`:
+
+```python
+from ubo_morph.morphing import Backend, BackendName, get_backend
+
+cpu = get_backend("cpu")
+assert cpu.name == "cpu"
+```
+
+Concrete classes are exposed only by their backend subpackages:
+
+```python
+from ubo_morph.morphing.cpu import CPUBackend
+
+backend = CPUBackend()
+```
+
+Install CuPy support before selecting `backend="cupy"`:
+
+```console
+pip install "ubo-morph[cupy]"
 ```
 
 ## Landmark extractors
@@ -72,54 +109,48 @@ filename column. Headered CSV files may use `factor`, or both `warping_factor`
 and `blending_factor`; an optional `output`, `output_filename`, or `filename`
 column controls the destination name. Relative image paths are resolved from the
 CSV directory. CSV factor columns cannot be combined with CLI factor arguments.
+During each CLI run, landmarks are cached in memory by resolved image path, so
+images reused across pairs are extracted only once. The cache is discarded when
+the command exits.
 
-Use `--intermediate-results` to create `M_stem1_stem2/` containing `morphed.png`
-and every image-valued intermediate field from `MorphResult`. Run
-`ubo-morph --help` for all alignment, retouching, background, device, and
-extractor-specific settings.
+By default, a failing pair stops the command. Pass `--skip-failing-pairs` to
+report the affected file or files and failure reason, then continue with the
+remaining pairs.
 
-Both high-level functions forward the selected device through every heavy stage.
-The lower-level device-aware operations are also public:
+Use `--intermediate-results` to create a factor-qualified `M_...png/` directory
+containing `morphed.png` and every image-valued intermediate field from
+`MorphResult`. This includes the
+aligned images before color equalization, the image actually changed by
+equalization when it runs, the warped images, and the blended image when
+background substitution follows. `MorphResult` also exposes the original and
+aligned landmarks for both inputs. Use `--points-per-border COUNT` to change the
+default of five; zero disables border points, as does the `--no-border-points`
+convenience flag. Run `ubo-morph --help` for all
+alignment, retouching, background, and extractor-specific settings.
 
-- `delaunay_triangles`
-- `align_face_images`
-- `warp_image_by_triangles`
-- `blend_images`
-- `equalize_face`
-- `substitute_background`
-
-Every function defaults to `device="cpu"`. Selecting `device="gpu"` reaches the
-corresponding private GPU hook; no silent CPU fallback is performed.
+For faster landmark detection on large inputs, set
+`--landmark-extraction-short-side PIXELS`. Images whose shortest side exceeds
+that limit are resized so it equals the limit, with the other side scaled
+proportionally. Only the extractor input is resized; detected coordinates are
+mapped back to the original image size before full-resolution morphing. The
+default value of zero disables this resizing.
 
 ## Module layout
 
 ```text
 ubo_morph/
   morphing/
-    _backends.py        # typed, lazy device selector
-    _protocols.py       # backend callable contracts and bundle
-    core.py             # high-level API, result type, and morph flow
-    points.py           # lightweight point operations
-    cpu/                # OpenCV implementations, including triangulation
-    gpu/                # Numba implementation hooks, including triangulation
-```
-
-The backend subpackages are implementation details and are not re-exported from
-the top-level package. To implement a GPU stage, fill in the matching module in
-the relevant `gpu/` subpackage while preserving the CPU function's signature and
-return contract. GPU modules may import Numba directly because the typed backend
-selectors import them only for `device="gpu"`.
-
-Install the optional dependency with:
-
-```console
-pip install "ubo-morph[gpu]"
+    backend.py          # typed backend contract and lazy selector
+    core.py             # shared geometry, retouching, triangulation, and flow
+    points.py           # shared point and mask operations
+    cpu/backend.py      # NumPy/OpenCV primitive implementation
+    cupy/backend.py     # optional CuPy primitive implementation
 ```
 
 ## Validation
 
 ```console
-uv run python -m unittest discover -v
+uv run pytest -v
 uv run ruff check .
 uv run ty check
 ```

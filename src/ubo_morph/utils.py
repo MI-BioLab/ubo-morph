@@ -20,4 +20,5 @@ def as_point(value: object) -> np.ndarray:
 
 
 def round_away(x: float) -> int:
-    return int(x + 0.5)
+    """Round half away from zero: 1.5 -> 2, -1.5 -> -2."""
+    return int(x + 0.5) if x >= 0 else -int(-x + 0.5)
