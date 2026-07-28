@@ -144,6 +144,24 @@ class TestBackendNumericalParity:
             atol=AFFINE_ATOL,
         )
 
+    def test_affine_warp_uses_constant_zero_at_fractional_border(self) -> None:
+        image = np.full((2, 4, 3), 200, dtype=np.uint8)
+        matrix = np.array(
+            [[1.0, 0.0, -0.75], [0.0, 1.0, 0.0]],
+            dtype=np.float32,
+        )
+
+        expected = self.cpu.warp_affine(image, matrix, image.shape[:2])
+        actual = self.to_numpy(
+            self.cupy.warp_affine(
+                self.to_cupy(image),
+                matrix,
+                image.shape[:2],
+            )
+        )
+
+        np.testing.assert_array_equal(actual, expected)
+
     def test_resize_matches_cpu_within_tolerance(self) -> None:
         image = _smooth_image(12, 15)
         output_shape = (19, 23)

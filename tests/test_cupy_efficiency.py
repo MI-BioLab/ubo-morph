@@ -205,6 +205,7 @@ class TestCuPyRetouchingEfficiency:
         reference = np.flip(image, axis=0).copy()
         mask = np.ones(image.shape[:2], dtype=bool)
         launches: list[str] = []
+        histogram_launches: list[tuple[object, dict[str, object]]] = []
 
         def histogram(
             grid: object,
@@ -212,8 +213,9 @@ class TestCuPyRetouchingEfficiency:
             arguments: tuple[object, ...],
             **kwargs: object,
         ) -> None:
-            del grid, block, arguments, kwargs
+            del block, arguments
             launches.append("histogram")
+            histogram_launches.append((grid, kwargs))
 
         def lookup(
             grid: object,
@@ -254,6 +256,7 @@ class TestCuPyRetouchingEfficiency:
             )
 
         assert launches == ["histogram", "lookup", "apply"]
+        assert histogram_launches == [((1, 3), {})]
         assert result.shape == image.shape
 
     @pytest.mark.parametrize(

@@ -264,7 +264,7 @@ class CuPyBackend(Backend[cp.ndarray]):
         maximum_pixel_count = max(input_pixel_count, reference_pixel_count)
         blocks = min((maximum_pixel_count + threads - 1) // threads, 256)
         self._histogram_kernel(
-            (blocks,),
+            (blocks, channels),
             (threads,),
             (
                 contiguous_image,
@@ -276,7 +276,6 @@ class CuPyBackend(Backend[cp.ndarray]):
                 np.int32(channels),
                 histograms,
             ),
-            shared_mem=channels * 2 * 256 * np.dtype(np.uint32).itemsize,
         )
         self._lookup_kernel(
             (channels,),
