@@ -24,10 +24,10 @@ def annotate_landmark_mesh(
         raise ValueError("landmark_points must have shape (n, 2)")
 
     short_side = max(1, min(annotated.shape[:2]))
-    line_thickness = max(1, round(short_side / 500))
-    point_radius = max(2, round(short_side / 250))
-    font_scale = max(0.35, min(0.8, short_side / 900))
-    font_thickness = max(1, round(short_side / 600))
+    line_thickness = max(1, round(short_side / 900))
+    point_radius = max(1, round(short_side / 500))
+    font_scale = max(0.2, min(0.4, short_side / 1800))
+    font_thickness = max(1, round(short_side / 1200))
     integer_mesh_points = np.rint(mesh_points).astype(np.int32)
     integer_landmark_points = np.rint(landmark_points).astype(np.int32)
 
@@ -70,7 +70,7 @@ def annotate_landmark_mesh(
             font_scale,
             font_thickness,
         )
-        label_gap = point_radius + 2
+        label_gap = point_radius + 1
         label_candidates = (
             (center[0] + label_gap, center[1] - label_gap),
             (center[0] - label_gap - label_width, center[1] - label_gap),
@@ -105,7 +105,7 @@ def annotate_landmark_mesh(
             cv2.FONT_HERSHEY_SIMPLEX,
             font_scale,
             (0, 0, 0),
-            thickness=font_thickness + 2,
+            thickness=font_thickness + 1,
             lineType=cv2.LINE_AA,
         )
         cv2.putText(
