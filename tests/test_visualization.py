@@ -10,9 +10,9 @@ def test_landmark_label_is_kept_inside_image_at_top_right_corner() -> None:
 
     annotated = annotate_landmark_mesh(
         image,
-        points=np.array([[119.0, 0.0]], dtype=np.float32),
+        mesh_points=np.array([[119.0, 0.0]], dtype=np.float32),
         triangles=[],
-        landmark_indices=np.array([123], dtype=np.int32),
+        landmark_points=np.array([[119.0, 0.0]], dtype=np.float32),
     )
 
     np.testing.assert_array_equal(image, np.zeros_like(image))

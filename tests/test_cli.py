@@ -436,33 +436,38 @@ class TestCliExecution:
         morphed_points = source_points1 + np.array([60, 0], dtype=np.float32)
         morphed_points[-1] = [50, 0]
         triangles = [(0, 1, 2), (0, 2, 3), (0, 3, 1)]
-        landmarks = Landmarks(
+        landmarks1 = Landmarks(
             np.array((30, 60), dtype=np.float32),
             np.array((20, 60), dtype=np.float32),
-            points,
+            source_points1[:3],
+        )
+        landmarks2 = Landmarks(
+            np.array((60, 60), dtype=np.float32),
+            np.array((50, 60), dtype=np.float32),
+            source_points2[:3],
         )
         result = MorphResult(
             image=image,
             morphed_points=morphed_points,
             source_points1=source_points1,
             source_points2=source_points2,
-            point_landmark_indices=np.array([0, 1, 2, -1], dtype=np.int32),
+            morphed_landmark_points=morphed_points[:3],
             triangles=triangles,
             warped_image1=image,
             warped_image2=image,
             aligned_image1=image,
             aligned_image2=image,
-            aligned_landmarks1=landmarks,
-            aligned_landmarks2=landmarks,
-            original_landmarks1=landmarks,
-            original_landmarks2=landmarks,
+            aligned_landmarks1=landmarks1,
+            aligned_landmarks2=landmarks2,
+            original_landmarks1=landmarks1,
+            original_landmarks2=landmarks2,
             before_background_substitution=image,
             after_equalization_image1=image,
             after_equalization_image2=image,
         )
         extractor = MagicMock()
         extractor.__enter__.return_value = extractor
-        extractor.extract.side_effect = (landmarks, landmarks)
+        extractor.extract.side_effect = (landmarks1, landmarks2)
         saved_images: dict[Path, np.ndarray] = {}
 
         output_directory = tmp_path / "outputs"

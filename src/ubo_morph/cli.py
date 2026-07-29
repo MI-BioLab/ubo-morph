@@ -35,7 +35,7 @@ _OUTPUT_HEADERS = {"output", "output_filename", "filename"}
 _FACTOR_HEADERS = {"factor", "warping_factor", "blending_factor"}
 _KNOWN_HEADERS = _IMAGE1_HEADERS | _IMAGE2_HEADERS | _OUTPUT_HEADERS | _FACTOR_HEADERS
 _BACKEND_CHOICES = get_args(BackendName)
-_INTERMEDIATE_POINT_FIELDS = {
+_INTERMEDIATE_MESH_POINT_FIELDS = {
     "image": "morphed_points",
     "warped_image1": "morphed_points",
     "warped_image2": "morphed_points",
@@ -44,6 +44,16 @@ _INTERMEDIATE_POINT_FIELDS = {
     "before_background_substitution": "morphed_points",
     "after_equalization_image1": "source_points1",
     "after_equalization_image2": "source_points2",
+}
+_INTERMEDIATE_LANDMARK_FIELDS = {
+    "image": "morphed_landmark_points",
+    "warped_image1": "morphed_landmark_points",
+    "warped_image2": "morphed_landmark_points",
+    "aligned_image1": "aligned_landmarks1",
+    "aligned_image2": "aligned_landmarks2",
+    "before_background_substitution": "morphed_landmark_points",
+    "after_equalization_image1": "aligned_landmarks1",
+    "after_equalization_image2": "aligned_landmarks2",
 }
 
 
@@ -647,9 +657,6 @@ def _cached_image(path: Path, cache: OrderedDict[Path, np.ndarray]) -> np.ndarra
 
 
 def _save_intermediate_result(output_path: Path, result: MorphResult) -> None:
-    landmark_indices = result.point_landmark_indices
-    if landmark_indices is None:
-        raise ValueError("Morph result does not contain annotation landmark indices.")
     images = [("image", output_path, result.image)]
     for field in fields(result):
         if field.name == "image":
@@ -666,21 +673,31 @@ def _save_intermediate_result(output_path: Path, result: MorphResult) -> None:
 
     for field_name, path, image in images:
         _save_image(path, image)
-        point_field = _INTERMEDIATE_POINT_FIELDS.get(field_name)
-        if point_field is None:
+        mesh_point_field = _INTERMEDIATE_MESH_POINT_FIELDS.get(field_name)
+        landmark_field = _INTERMEDIATE_LANDMARK_FIELDS.get(field_name)
+        if mesh_point_field is None or landmark_field is None:
             raise ValueError(
-                f'No annotation point mapping exists for intermediate "{field_name}".'
+                f'No annotation geometry mapping exists for intermediate "{field_name}".'
             )
-        points = getattr(result, point_field)
-        if not isinstance(points, np.ndarray):
+        mesh_points = getattr(result, mesh_point_field)
+        if not isinstance(mesh_points, np.ndarray):
             raise ValueError(
-                f'Morph result does not contain annotation points "{point_field}".'
+                f'Morph result does not contain mesh points "{mesh_point_field}".'
+            )
+        landmarks = getattr(result, landmark_field)
+        if isinstance(landmarks, Landmarks):
+            landmark_points = landmarks.points
+        elif isinstance(landmarks, np.ndarray):
+            landmark_points = landmarks
+        else:
+            raise ValueError(
+                f'Morph result does not contain landmark points "{landmark_field}".'
             )
         annotated = annotate_landmark_mesh(
             image,
-            points,
+            mesh_points,
             result.triangles,
-            landmark_indices,
+            landmark_points,
         )
         annotated_path = path.with_name(f"{path.stem}_annotated{path.suffix}")
         _save_image(annotated_path, annotated)

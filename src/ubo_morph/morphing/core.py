@@ -11,7 +11,6 @@ from ubo_morph.morphing.alignment import alignment_geometry, scale_landmarks
 from ubo_morph.morphing.backend import Backend, BackendName, get_backend
 from ubo_morph.morphing.points import (
     add_border_points,
-    non_overlapped_point_indices,
     remove_border_points,
     remove_overlapped_points,
 )
@@ -35,7 +34,7 @@ class MorphResult:
     after_equalization_image2: np.ndarray | None = None
     source_points1: np.ndarray | None = None
     source_points2: np.ndarray | None = None
-    point_landmark_indices: np.ndarray | None = None
+    morphed_landmark_points: np.ndarray | None = None
     triangles: list[tuple[int, int, int]] = field(default_factory=list)
 
 
@@ -295,7 +294,9 @@ def _morph_pipeline(
 
     morph_points1 = aligned_landmarks1.points
     morph_points2 = aligned_landmarks2.points
-    point_landmark_indices = np.arange(len(morph_points1), dtype=np.int32)
+    morphed_landmark_points = (
+        morph_points1 + (morph_points2 - morph_points1) * warping_factor
+    )
     if points_per_border:
         morph_points1 = add_border_points(
             aligned_image1,
@@ -307,21 +308,10 @@ def _morph_pipeline(
             morph_points2,
             points_per_border,
         )
-        border_point_count = len(morph_points1) - len(point_landmark_indices)
-        point_landmark_indices = np.concatenate(
-            (
-                point_landmark_indices,
-                np.full(border_point_count, -1, dtype=np.int32),
-            )
-        )
-    retained_point_indices = non_overlapped_point_indices(
+    morph_points1, morph_points2 = remove_overlapped_points(
         morph_points1,
         morph_points2,
-        point_priorities=point_landmark_indices >= 0,
     )
-    morph_points1 = morph_points1[retained_point_indices].copy()
-    morph_points2 = morph_points2[retained_point_indices].copy()
-    point_landmark_indices = point_landmark_indices[retained_point_indices].copy()
 
     work_image1 = aligned_image1
     work_image2 = aligned_image2
@@ -403,7 +393,7 @@ def _morph_pipeline(
         morphed_points=morphed_points,
         source_points1=morph_points1,
         source_points2=morph_points2,
-        point_landmark_indices=point_landmark_indices,
+        morphed_landmark_points=morphed_landmark_points,
         triangles=triangles,
         warped_image1=backend.to_numpy(warped_image1),
         warped_image2=backend.to_numpy(warped_image2),

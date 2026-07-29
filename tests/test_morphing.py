@@ -124,7 +124,7 @@ class TestMorphing:
 
         assert result.source_points1 is None
         assert result.source_points2 is None
-        assert result.point_landmark_indices is None
+        assert result.morphed_landmark_points is None
         assert result.triangles == []
 
     def test_details_preserve_annotation_geometry_and_facial_indices(self) -> None:
@@ -171,8 +171,8 @@ class TestMorphing:
         np.testing.assert_array_equal(result.source_points2, expected_points)
         np.testing.assert_array_equal(result.morphed_points, expected_points)
         np.testing.assert_array_equal(
-            result.point_landmark_indices,
-            np.array([1, 2, 3, -1, -1, -1, -1], dtype=np.int32),
+            result.morphed_landmark_points,
+            points,
         )
         assert result.triangles
         assert all(
@@ -180,8 +180,10 @@ class TestMorphing:
             for triangle in result.triangles
         )
 
-    def test_facial_index_wins_when_landmark_overlaps_border_point(self) -> None:
-        points = np.array(
+    def test_border_anchor_and_all_facial_annotation_points_are_preserved(
+        self,
+    ) -> None:
+        points1 = np.array(
             [
                 [0.0, 0.0],
                 [15.0, 5.0],
@@ -189,17 +191,25 @@ class TestMorphing:
             ],
             dtype=np.float32,
         )
-        landmarks = Landmarks(
-            left_eye=points[1],
-            right_eye=points[2],
-            points=points,
+        points2 = points1.copy()
+        points2[0] = [6.0, 6.0]
+        landmarks1 = Landmarks(
+            left_eye=points1[1],
+            right_eye=points1[2],
+            points=points1,
+        )
+        landmarks2 = Landmarks(
+            left_eye=points2[1],
+            right_eye=points2[2],
+            points=points2,
         )
 
         result = morph_with_landmarks(
             self.image,
             self.image,
-            landmarks,
-            landmarks,
+            landmarks1,
+            landmarks2,
+            warping_factor=0.5,
             align_eye_centers=False,
             points_per_border=2,
             automatic_retouching=False,
@@ -207,12 +217,27 @@ class TestMorphing:
         )
 
         assert isinstance(result, MorphResult)
+        assert result.source_points1 is not None
+        assert result.source_points2 is not None
         corner_rows = np.flatnonzero(
             np.all(result.source_points1 == np.array([0.0, 0.0]), axis=1)
         )
-        np.testing.assert_array_equal(corner_rows, np.array([0]))
-        assert result.point_landmark_indices is not None
-        assert result.point_landmark_indices[corner_rows[0]] == 0
+        assert len(corner_rows) == 1
+        np.testing.assert_array_equal(
+            result.source_points2[corner_rows[0]],
+            np.array([0.0, 0.0]),
+        )
+        np.testing.assert_array_equal(
+            result.morphed_landmark_points,
+            np.array(
+                [
+                    [3.0, 3.0],
+                    [15.0, 5.0],
+                    [10.0, 15.0],
+                ],
+                dtype=np.float32,
+            ),
+        )
 
     def test_points_per_border_is_forwarded_and_zero_disables_it(self) -> None:
         counts: list[int] = []
