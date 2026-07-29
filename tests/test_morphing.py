@@ -108,6 +108,59 @@ class TestMorphing:
         assert result.after_equalization_image1 is None
         assert result.after_equalization_image2 is None
 
+    def test_details_preserve_annotation_geometry_and_facial_indices(self) -> None:
+        points = np.array(
+            [
+                [5.0, 5.0],
+                [5.0, 5.0],
+                [15.0, 5.0],
+                [10.0, 15.0],
+            ],
+            dtype=np.float32,
+        )
+        landmarks = Landmarks(
+            left_eye=points[1],
+            right_eye=points[2],
+            points=points,
+        )
+
+        result = morph_with_landmarks(
+            self.image,
+            self.image,
+            landmarks,
+            landmarks,
+            align_eye_centers=False,
+            points_per_border=2,
+            automatic_retouching=False,
+            return_details=True,
+        )
+
+        assert isinstance(result, MorphResult)
+        expected_points = np.array(
+            [
+                [5.0, 5.0],
+                [15.0, 5.0],
+                [10.0, 15.0],
+                [0.0, 0.0],
+                [0.0, 19.0],
+                [19.0, 0.0],
+                [19.0, 19.0],
+            ],
+            dtype=np.float32,
+        )
+        np.testing.assert_array_equal(result.source_points1, expected_points)
+        np.testing.assert_array_equal(result.source_points2, expected_points)
+        np.testing.assert_array_equal(result.morphed_points, expected_points)
+        np.testing.assert_array_equal(
+            result.point_landmark_indices,
+            np.array([1, 2, 3, -1, -1, -1, -1], dtype=np.int32),
+        )
+        assert result.triangles
+        assert all(
+            len(set(triangle)) == 3 and max(triangle) < len(expected_points)
+            for triangle in result.triangles
+        )
+
     def test_points_per_border_is_forwarded_and_zero_disables_it(self) -> None:
         counts: list[int] = []
 

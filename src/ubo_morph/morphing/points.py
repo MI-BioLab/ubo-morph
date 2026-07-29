@@ -67,6 +67,16 @@ def remove_overlapped_points(
     points1: np.ndarray,
     points2: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
+    array1 = np.asarray(points1, dtype=np.float32)
+    array2 = np.asarray(points2, dtype=np.float32)
+    indices = non_overlapped_point_indices(array1, array2)
+    return array1[indices].copy(), array2[indices].copy()
+
+
+def non_overlapped_point_indices(
+    points1: np.ndarray,
+    points2: np.ndarray,
+) -> np.ndarray:
     # Two-pass duplicate removal: pass 1 drops rows that are duplicates within
     # array1 (keeping each duplicate's *last* occurrence, via the reversed-array
     # unique trick), applying the same row filter to array2 so the two arrays stay
@@ -77,12 +87,14 @@ def remove_overlapped_points(
     array2 = np.asarray(points2, dtype=np.float32)
     if len(array1) != len(array2):
         raise ValueError("point arrays must have the same length")
+    original_indices = np.arange(len(array1))
     for array_index in range(2):
         array = (array1, array2)[array_index]
         _, reversed_indices = np.unique(array[::-1], axis=0, return_index=True)
         indices = np.sort(len(array) - 1 - reversed_indices)
         array1, array2 = array1[indices], array2[indices]
-    return array1.copy(), array2.copy()
+        original_indices = original_indices[indices]
+    return original_indices
 
 
 def convex_hull_mask(

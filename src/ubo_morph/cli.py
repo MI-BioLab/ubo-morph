@@ -26,6 +26,7 @@ from ubo_morph.morphing import (
     morph_with_landmarks,
 )
 from ubo_morph.utils import ensure_bgr_uint8, round_away
+from ubo_morph.visualization import annotate_landmark_mesh
 
 
 _IMAGE1_HEADERS = {"image1", "image_1", "imagea"}
@@ -34,6 +35,16 @@ _OUTPUT_HEADERS = {"output", "output_filename", "filename"}
 _FACTOR_HEADERS = {"factor", "warping_factor", "blending_factor"}
 _KNOWN_HEADERS = _IMAGE1_HEADERS | _IMAGE2_HEADERS | _OUTPUT_HEADERS | _FACTOR_HEADERS
 _BACKEND_CHOICES = get_args(BackendName)
+_INTERMEDIATE_POINT_FIELDS = {
+    "image": "morphed_points",
+    "warped_image1": "morphed_points",
+    "warped_image2": "morphed_points",
+    "aligned_image1": "source_points1",
+    "aligned_image2": "source_points2",
+    "before_background_substitution": "morphed_points",
+    "after_equalization_image1": "source_points1",
+    "after_equalization_image2": "source_points2",
+}
 
 
 class CliError(ValueError):
@@ -636,13 +647,35 @@ def _cached_image(path: Path, cache: OrderedDict[Path, np.ndarray]) -> np.ndarra
 
 
 def _save_intermediate_result(output_path: Path, result: MorphResult) -> None:
-    _save_image(output_path, result.image)
+    images = [("image", output_path, result.image)]
     for field in fields(result):
         if field.name == "image":
             continue
         value = getattr(result, field.name)
         if isinstance(value, np.ndarray) and value.ndim == 3 and value.shape[2] == 3:
-            _save_image(output_path.parent / f"{field.name}.png", value)
+            images.append(
+                (
+                    field.name,
+                    output_path.parent / f"{field.name}.png",
+                    value,
+                )
+            )
+
+    for field_name, path, image in images:
+        _save_image(path, image)
+        point_field = _INTERMEDIATE_POINT_FIELDS.get(field_name)
+        if point_field is None:
+            raise ValueError(
+                f'No annotation point mapping exists for intermediate "{field_name}".'
+            )
+        annotated = annotate_landmark_mesh(
+            image,
+            getattr(result, point_field),
+            result.triangles,
+            result.point_landmark_indices,
+        )
+        annotated_path = path.with_name(f"{path.stem}_annotated{path.suffix}")
+        _save_image(annotated_path, annotated)
 
 
 def _load_image(path: Path) -> np.ndarray:

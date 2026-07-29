@@ -11,6 +11,7 @@ from ubo_morph.morphing.alignment import alignment_geometry, scale_landmarks
 from ubo_morph.morphing.backend import Backend, BackendName, get_backend
 from ubo_morph.morphing.points import (
     add_border_points,
+    non_overlapped_point_indices,
     remove_border_points,
     remove_overlapped_points,
 )
@@ -21,6 +22,10 @@ from ubo_morph.utils import ensure_bgr_uint8, round_away
 class MorphResult:
     image: np.ndarray
     morphed_points: np.ndarray
+    source_points1: np.ndarray
+    source_points2: np.ndarray
+    point_landmark_indices: np.ndarray
+    triangles: list[tuple[int, int, int]]
     warped_image1: np.ndarray
     warped_image2: np.ndarray
     aligned_image1: np.ndarray
@@ -290,6 +295,7 @@ def _morph_pipeline(
 
     morph_points1 = aligned_landmarks1.points
     morph_points2 = aligned_landmarks2.points
+    point_landmark_indices = np.arange(len(morph_points1), dtype=np.int32)
     if points_per_border:
         morph_points1 = add_border_points(
             aligned_image1,
@@ -301,10 +307,20 @@ def _morph_pipeline(
             morph_points2,
             points_per_border,
         )
-    morph_points1, morph_points2 = remove_overlapped_points(
+        border_point_count = len(morph_points1) - len(point_landmark_indices)
+        point_landmark_indices = np.concatenate(
+            (
+                point_landmark_indices,
+                np.full(border_point_count, -1, dtype=np.int32),
+            )
+        )
+    retained_point_indices = non_overlapped_point_indices(
         morph_points1,
         morph_points2,
     )
+    morph_points1 = morph_points1[retained_point_indices].copy()
+    morph_points2 = morph_points2[retained_point_indices].copy()
+    point_landmark_indices = point_landmark_indices[retained_point_indices].copy()
 
     work_image1 = aligned_image1
     work_image2 = aligned_image2
@@ -384,6 +400,10 @@ def _morph_pipeline(
     return MorphResult(
         image=result_image,
         morphed_points=morphed_points,
+        source_points1=morph_points1,
+        source_points2=morph_points2,
+        point_landmark_indices=point_landmark_indices,
+        triangles=triangles,
         warped_image1=backend.to_numpy(warped_image1),
         warped_image2=backend.to_numpy(warped_image2),
         aligned_image1=backend.to_numpy(aligned_image1),

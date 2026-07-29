@@ -119,14 +119,16 @@ remaining pairs.
 
 Use `--intermediate-results` to create a factor-qualified `M_...png/` directory
 containing `morphed.png` and every image-valued intermediate field from
-`MorphResult`. This includes the
-aligned images before color equalization, the image actually changed by
-equalization when it runs, the warped images, and the blended image when
-background substitution follows. `MorphResult` also exposes the original and
-aligned landmarks for both inputs. Use `--points-per-border COUNT` to change the
-default of five; zero disables border points, as does the `--no-border-points`
-convenience flag. Run `ubo-morph --help` for all
-alignment, retouching, background, and extractor-specific settings.
+`MorphResult`. Each original image remains unchanged and is accompanied by an
+`_annotated.png` version containing indexed facial landmarks, unindexed border
+points, and the Delaunay triangulation used by the morph. The intermediate
+images include the aligned images before color equalization, the image actually
+changed by equalization when it runs, the warped images, and the blended image
+when background substitution follows. `MorphResult` also exposes the original
+and aligned landmarks for both inputs. Use `--points-per-border COUNT` to change
+the default of five; zero disables border points, as does the
+`--no-border-points` convenience flag. Run `ubo-morph --help` for all alignment,
+retouching, background, and extractor-specific settings.
 
 For faster landmark detection on large inputs, set
 `--landmark-extraction-short-side PIXELS`. Images whose shortest side exceeds

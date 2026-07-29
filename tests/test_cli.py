@@ -428,16 +428,26 @@ class TestCliExecution:
         self,
         tmp_path: Path,
     ) -> None:
-        image = np.zeros((4, 4, 3), dtype=np.uint8)
-        points = np.array([[0, 0], [3, 0], [0, 3]], dtype=np.float32)
+        image = np.zeros((100, 100, 3), dtype=np.uint8)
+        points = np.array([[20, 60], [30, 60], [20, 70]], dtype=np.float32)
+        source_points1 = np.vstack((points, np.array([[0, 0]], dtype=np.float32)))
+        source_points2 = source_points1 + np.array([30, 0], dtype=np.float32)
+        source_points2[-1] = [99, 0]
+        morphed_points = source_points1 + np.array([60, 0], dtype=np.float32)
+        morphed_points[-1] = [50, 0]
+        triangles = [(0, 1, 2), (0, 2, 3), (0, 3, 1)]
         landmarks = Landmarks(
-            np.array((3, 1), dtype=np.float32),
-            np.array((1, 1), dtype=np.float32),
+            np.array((30, 60), dtype=np.float32),
+            np.array((20, 60), dtype=np.float32),
             points,
         )
         result = MorphResult(
             image=image,
-            morphed_points=points,
+            morphed_points=morphed_points,
+            source_points1=source_points1,
+            source_points2=source_points2,
+            point_landmark_indices=np.array([0, 1, 2, -1], dtype=np.int32),
+            triangles=triangles,
             warped_image1=image,
             warped_image2=image,
             aligned_image1=image,
@@ -448,11 +458,12 @@ class TestCliExecution:
             original_landmarks2=landmarks,
             before_background_substitution=image,
             after_equalization_image1=image,
+            after_equalization_image2=image,
         )
         extractor = MagicMock()
         extractor.__enter__.return_value = extractor
         extractor.extract.side_effect = (landmarks, landmarks)
-        saved_paths: list[Path] = []
+        saved_images: dict[Path, np.ndarray] = {}
 
         output_directory = tmp_path / "outputs"
         with (
@@ -460,7 +471,10 @@ class TestCliExecution:
             patch("ubo_morph.cli._load_image", return_value=image),
             patch(
                 "ubo_morph.cli._save_image",
-                side_effect=lambda path, value: saved_paths.append(path),
+                side_effect=lambda path, value: saved_images.__setitem__(
+                    path,
+                    value.copy(),
+                ),
             ),
             patch("ubo_morph.cli.morph_with_landmarks", return_value=result) as morph,
             patch("ubo_morph.cli.tqdm", side_effect=lambda values, **kwargs: values),
@@ -499,16 +513,59 @@ class TestCliExecution:
             blending_factor=0.8,
         )
 
-        assert exit_code == 0
-        assert set(saved_paths) == {
-            expected_directory / "morphed.png",
-            expected_directory / "warped_image1.png",
-            expected_directory / "warped_image2.png",
-            expected_directory / "aligned_image1.png",
-            expected_directory / "aligned_image2.png",
-            expected_directory / "before_background_substitution.png",
-            expected_directory / "after_equalization_image1.png",
+        original_names = {
+            "morphed.png",
+            "warped_image1.png",
+            "warped_image2.png",
+            "aligned_image1.png",
+            "aligned_image2.png",
+            "before_background_substitution.png",
+            "after_equalization_image1.png",
+            "after_equalization_image2.png",
         }
+        annotated_names = {
+            f"{Path(name).stem}_annotated.png" for name in original_names
+        }
+        assert exit_code == 0
+        assert set(saved_images) == {
+            expected_directory / name for name in original_names | annotated_names
+        }
+        for name in original_names:
+            np.testing.assert_array_equal(saved_images[expected_directory / name], image)
+
+        source1_names = {"aligned_image1", "after_equalization_image1"}
+        source2_names = {"aligned_image2", "after_equalization_image2"}
+        morphed_names = {
+            "morphed",
+            "warped_image1",
+            "warped_image2",
+            "before_background_substitution",
+        }
+        for name in source1_names:
+            annotated = saved_images[expected_directory / f"{name}_annotated.png"]
+            assert annotated[60, 20].any()
+            assert annotated[65, 25].any()
+            assert annotated[0, 0].any()
+            assert not annotated[60, 50].any()
+            assert not annotated[60, 80].any()
+            assert not np.all(annotated[:15, :15] == 255, axis=2).any()
+        for name in source2_names:
+            annotated = saved_images[expected_directory / f"{name}_annotated.png"]
+            assert not annotated[60, 20].any()
+            assert annotated[60, 50].any()
+            assert annotated[65, 55].any()
+            assert annotated[0, 99].any()
+            assert not annotated[60, 80].any()
+            assert not np.all(annotated[:15, 85:] == 255, axis=2).any()
+        for name in morphed_names:
+            annotated = saved_images[expected_directory / f"{name}_annotated.png"]
+            assert not annotated[60, 20].any()
+            assert not annotated[60, 50].any()
+            assert annotated[60, 80].any()
+            assert annotated[65, 85].any()
+            assert annotated[0, 50].any()
+            assert not np.all(annotated[:15, 45:65] == 255, axis=2).any()
+
         kwargs = morph.call_args.kwargs
         assert kwargs["warping_factor"] == 0.2
         assert kwargs["blending_factor"] == 0.8
