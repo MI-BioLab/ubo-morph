@@ -647,6 +647,9 @@ def _cached_image(path: Path, cache: OrderedDict[Path, np.ndarray]) -> np.ndarra
 
 
 def _save_intermediate_result(output_path: Path, result: MorphResult) -> None:
+    landmark_indices = result.point_landmark_indices
+    if landmark_indices is None:
+        raise ValueError("Morph result does not contain annotation landmark indices.")
     images = [("image", output_path, result.image)]
     for field in fields(result):
         if field.name == "image":
@@ -668,11 +671,16 @@ def _save_intermediate_result(output_path: Path, result: MorphResult) -> None:
             raise ValueError(
                 f'No annotation point mapping exists for intermediate "{field_name}".'
             )
+        points = getattr(result, point_field)
+        if not isinstance(points, np.ndarray):
+            raise ValueError(
+                f'Morph result does not contain annotation points "{point_field}".'
+            )
         annotated = annotate_landmark_mesh(
             image,
-            getattr(result, point_field),
+            points,
             result.triangles,
-            result.point_landmark_indices,
+            landmark_indices,
         )
         annotated_path = path.with_name(f"{path.stem}_annotated{path.suffix}")
         _save_image(annotated_path, annotated)

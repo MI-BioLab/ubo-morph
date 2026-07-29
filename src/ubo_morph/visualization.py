@@ -58,11 +58,41 @@ def annotate_landmark_mesh(
         )
         if landmark_index < 0:
             continue
-        label_origin = (
-            center[0] + point_radius + 2,
-            center[1] - point_radius - 2,
-        )
         label = str(int(landmark_index))
+        (label_width, label_height), label_baseline = cv2.getTextSize(
+            label,
+            cv2.FONT_HERSHEY_SIMPLEX,
+            font_scale,
+            font_thickness,
+        )
+        label_gap = point_radius + 2
+        label_candidates = (
+            (center[0] + label_gap, center[1] - label_gap),
+            (center[0] - label_gap - label_width, center[1] - label_gap),
+            (center[0] + label_gap, center[1] + label_gap + label_height),
+            (
+                center[0] - label_gap - label_width,
+                center[1] + label_gap + label_height,
+            ),
+        )
+        image_height, image_width = annotated.shape[:2]
+        label_origin = next(
+            (
+                candidate
+                for candidate in label_candidates
+                if 0 <= candidate[0]
+                and candidate[0] + label_width < image_width
+                and candidate[1] - label_height >= 0
+                and candidate[1] + label_baseline < image_height
+            ),
+            (
+                min(max(label_candidates[0][0], 0), max(image_width - label_width, 0)),
+                min(
+                    max(label_candidates[0][1], label_height),
+                    max(image_height - label_baseline - 1, label_height),
+                ),
+            ),
+        )
         cv2.putText(
             annotated,
             label,

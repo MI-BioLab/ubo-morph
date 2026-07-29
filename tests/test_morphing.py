@@ -108,6 +108,25 @@ class TestMorphing:
         assert result.after_equalization_image1 is None
         assert result.after_equalization_image2 is None
 
+    def test_morph_result_retains_previous_positional_constructor(self) -> None:
+        result = MorphResult(
+            self.image,
+            self.points,
+            self.image,
+            self.image,
+            self.image,
+            self.image,
+            self.landmarks,
+            self.landmarks,
+            self.landmarks,
+            self.landmarks,
+        )
+
+        assert result.source_points1 is None
+        assert result.source_points2 is None
+        assert result.point_landmark_indices is None
+        assert result.triangles == []
+
     def test_details_preserve_annotation_geometry_and_facial_indices(self) -> None:
         points = np.array(
             [
@@ -160,6 +179,40 @@ class TestMorphing:
             len(set(triangle)) == 3 and max(triangle) < len(expected_points)
             for triangle in result.triangles
         )
+
+    def test_facial_index_wins_when_landmark_overlaps_border_point(self) -> None:
+        points = np.array(
+            [
+                [0.0, 0.0],
+                [15.0, 5.0],
+                [10.0, 15.0],
+            ],
+            dtype=np.float32,
+        )
+        landmarks = Landmarks(
+            left_eye=points[1],
+            right_eye=points[2],
+            points=points,
+        )
+
+        result = morph_with_landmarks(
+            self.image,
+            self.image,
+            landmarks,
+            landmarks,
+            align_eye_centers=False,
+            points_per_border=2,
+            automatic_retouching=False,
+            return_details=True,
+        )
+
+        assert isinstance(result, MorphResult)
+        corner_rows = np.flatnonzero(
+            np.all(result.source_points1 == np.array([0.0, 0.0]), axis=1)
+        )
+        np.testing.assert_array_equal(corner_rows, np.array([0]))
+        assert result.point_landmark_indices is not None
+        assert result.point_landmark_indices[corner_rows[0]] == 0
 
     def test_points_per_border_is_forwarded_and_zero_disables_it(self) -> None:
         counts: list[int] = []

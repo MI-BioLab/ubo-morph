@@ -76,6 +76,8 @@ def remove_overlapped_points(
 def non_overlapped_point_indices(
     points1: np.ndarray,
     points2: np.ndarray,
+    *,
+    point_priorities: np.ndarray | None = None,
 ) -> np.ndarray:
     # Two-pass duplicate removal: pass 1 drops rows that are duplicates within
     # array1 (keeping each duplicate's *last* occurrence, via the reversed-array
@@ -87,12 +89,27 @@ def non_overlapped_point_indices(
     array2 = np.asarray(points2, dtype=np.float32)
     if len(array1) != len(array2):
         raise ValueError("point arrays must have the same length")
+    if point_priorities is None:
+        priorities = np.zeros(len(array1), dtype=np.int8)
+    else:
+        priorities = np.asarray(point_priorities)
+        if priorities.shape != (len(array1),):
+            raise ValueError("point_priorities must have one entry per point")
     original_indices = np.arange(len(array1))
     for array_index in range(2):
         array = (array1, array2)[array_index]
-        _, reversed_indices = np.unique(array[::-1], axis=0, return_index=True)
-        indices = np.sort(len(array) - 1 - reversed_indices)
+        _, group_indices = np.unique(array, axis=0, return_inverse=True)
+        retained_indices = []
+        for group_index in range(int(group_indices.max(initial=-1)) + 1):
+            candidates = np.flatnonzero(group_indices == group_index)
+            candidate_priorities = priorities[candidates]
+            preferred = candidates[
+                np.flatnonzero(candidate_priorities == candidate_priorities.max())[-1]
+            ]
+            retained_indices.append(preferred)
+        indices = np.sort(np.asarray(retained_indices, dtype=np.intp))
         array1, array2 = array1[indices], array2[indices]
+        priorities = priorities[indices]
         original_indices = original_indices[indices]
     return original_indices
 

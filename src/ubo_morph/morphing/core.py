@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal, overload
 
 import cv2
@@ -22,10 +22,6 @@ from ubo_morph.utils import ensure_bgr_uint8, round_away
 class MorphResult:
     image: np.ndarray
     morphed_points: np.ndarray
-    source_points1: np.ndarray
-    source_points2: np.ndarray
-    point_landmark_indices: np.ndarray
-    triangles: list[tuple[int, int, int]]
     warped_image1: np.ndarray
     warped_image2: np.ndarray
     aligned_image1: np.ndarray
@@ -37,6 +33,10 @@ class MorphResult:
     before_background_substitution: np.ndarray | None = None
     after_equalization_image1: np.ndarray | None = None
     after_equalization_image2: np.ndarray | None = None
+    source_points1: np.ndarray | None = None
+    source_points2: np.ndarray | None = None
+    point_landmark_indices: np.ndarray | None = None
+    triangles: list[tuple[int, int, int]] = field(default_factory=list)
 
 
 @overload
@@ -317,6 +317,7 @@ def _morph_pipeline(
     retained_point_indices = non_overlapped_point_indices(
         morph_points1,
         morph_points2,
+        point_priorities=point_landmark_indices >= 0,
     )
     morph_points1 = morph_points1[retained_point_indices].copy()
     morph_points2 = morph_points2[retained_point_indices].copy()
