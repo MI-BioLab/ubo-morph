@@ -26,5 +26,8 @@ def load_kernel_source() -> str:
     """
     Read the CUDA translation unit shipped beside this module.
     """
-    return files(__package__).joinpath("kernels.cu").read_text(encoding="utf-8")
-
+    return (
+        files("ubo_morph.morphing.cupy")
+        .joinpath("kernels.cu")
+        .read_text(encoding="utf-8")
+    )

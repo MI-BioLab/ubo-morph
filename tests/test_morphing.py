@@ -14,6 +14,7 @@ from ubo_morph import (
     morph_with_landmarks,
 )
 from ubo_morph.morphing.cpu import CPUBackend
+from ubo_morph.morphing.points import convex_hull_mask
 
 
 class TestMorphing:
@@ -43,6 +44,32 @@ class TestMorphing:
         result = CPUBackend().blend(black, white, 0.25)
 
         np.testing.assert_array_equal(result, np.full_like(result, 50))
+
+    def test_degenerate_convex_hull_skips_opencv_hull_construction(self) -> None:
+        with patch(
+            "ubo_morph.morphing.points.cv2.convexHull",
+            side_effect=AssertionError("degenerate hull passed to OpenCV"),
+        ):
+            mask = convex_hull_mask(
+                (5, 6), np.array([[2.0, 3.0]], dtype=np.float32)
+            )
+
+        assert mask.shape == (5, 6)
+        assert mask.dtype == np.bool_
+        assert not mask.any()
+
+    def test_collinear_convex_hull_is_empty(self) -> None:
+        points = np.array(
+            [[1.0, 1.0], [2.0, 2.0], [3.0, 3.0]], dtype=np.float32
+        )
+
+        with patch(
+            "ubo_morph.morphing.points.cv2.fillConvexPoly",
+            side_effect=AssertionError("degenerate hull filled"),
+        ):
+            mask = convex_hull_mask((5, 5), points)
+
+        assert not mask.any()
 
     def test_short_side_landmark_limit_keeps_full_size_morph_inputs(self) -> None:
         full_points = self.points

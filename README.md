@@ -5,6 +5,8 @@ described in the paper "Decoupling texture blending and shape warping in face mo
 
 ## Quick start
 
+UBO Morph supports Python 3.10 and newer.
+
 The examples below use MediaPipe and its `face_landmarker.task` model. Put the
 model and two face images in the working directory:
 

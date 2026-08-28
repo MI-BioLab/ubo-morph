@@ -6,7 +6,15 @@ readme = "README.md"
 authors = [
     { name = "ndido98", email = "ndido98@gmail.com" }
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 dependencies = [
     "numpy>=2.0.0,<2.5.0",
     "opencv-contrib-python>=5.0.0.93",
