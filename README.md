@@ -237,7 +237,7 @@ ubo_morph/
 ```console
 uv run pytest -v
 uv run ruff check .
-uv run ty check
+uv run ty check src tests
 ```
 
 ## Contributing
@@ -245,4 +245,12 @@ uv run ty check
 Contributions are welcome. Create a focused branch, add or update tests for
 behavior changes, and run the validation commands above before opening a pull
 request. Keep changes scoped to the issue being addressed and include a clear
-description of the behavior change in the pull request.
+description of the behavior change in the pull request. Commit messages must
+follow the Conventional Commits specification, for example `feat: add GPU
+batching` or `fix(cli): report invalid input`. To validate messages before each
+commit, install the optional hook:
+
+```console
+uv sync --group dev
+uv run pre-commit install --hook-type commit-msg
+```

@@ -3,6 +3,8 @@ from __future__ import annotations
 from importlib.resources import files
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from ubo_morph.morphing.cupy.kernels import KERNEL_NAMES, load_kernel_source
 
 
@@ -16,6 +18,7 @@ def test_cuda_source_is_a_packaged_resource_with_all_entry_points() -> None:
 
 
 def test_backend_builds_one_raw_module_and_retrieves_each_kernel() -> None:
+    pytest.importorskip("cupy", reason="CuPy extra is not installed")
     from ubo_morph.morphing.cupy import backend as gpu_backend
 
     module = MagicMock()

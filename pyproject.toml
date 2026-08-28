@@ -28,11 +28,30 @@ cupy = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.32.0"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+only-include = ["src", "README.md", "pyproject.toml"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ubo_morph"]
+
+[tool.semantic_release]
+branch = "main"
+version_toml = ["pyproject.toml:project.version"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+
+[tool.ty.analysis]
+# CuPy is an optional accelerator and is intentionally absent from base CI.
+allowed-unresolved-imports = ["cupy", "cupyx.**"]
 
 [dependency-groups]
 dev = [
+    "commitizen>=4.13.0",
+    "pre-commit>=4.0.0",
     "pytest>=8.0",
     "ruff>=0.15.21",
     "ty>=0.0.59",
