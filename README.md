@@ -1,31 +1,120 @@
-# ubo-morph
+# UBO Morphing Algorithm
 
-`ubo-morph` uses NumPy and OpenCV to morph two BGR `uint8` face images from
-corresponding landmark points.
+This package contains the reference implementation in Python of the UBO landmark-based morphing algorithm
+described in the paper "Decoupling texture blending and shape warping in face mopring" by M. Ferrara et al.
 
-## Public API
+## Quick start
 
-The high-level entry points are available directly from `ubo_morph`:
+The examples below use MediaPipe and its `face_landmarker.task` model. Put the
+model and two face images in the working directory:
+
+```console
+pip install "ubo-morph[mediapipe]"
+```
+
+### Morph from the command line
+
+Run one morph with a shape-warping factor and a texture-blending factor of
+`0.5` (the defaults):
+
+```console
+ubo-morph first.jpg second.jpg --extractor mediapipe --model face_landmarker.task --output-dir output
+```
+
+The resulting PNG is written under `output/` with an `M_...png` filename.
+Use `--factor` to produce several linked shape and texture blends in one run:
+
+```console
+ubo-morph first.jpg second.jpg --extractor mediapipe --model face_landmarker.task --output-dir output --factor 0.25 0.50 0.75
+```
+
+Inspect the landmark mesh and pipeline images for one factor combination with:
+
+```console
+ubo-morph first.jpg second.jpg --extractor mediapipe --model face_landmarker.task --output-dir output --intermediate-results
+```
+
+This creates a factor-qualified directory containing `morphed.png`, its
+`morphed_annotated.png` landmark-mesh visualization, and the available
+intermediate images.
+
+### Morph from Python
+
+OpenCV reads and writes BGR images, matching the package API. This example
+writes the default midpoint morph to `output.png`:
 
 ```python
-from ubo_morph import morph_images, morph_with_landmarks
+import cv2
 
-result = morph_images(image1, image2, extractor)
+from ubo_morph import MediaPipeLandmarkExtractor, morph_images
 
-# Control the number of points added to each image edge, or disable them.
-result = morph_images(image1, image2, extractor, points_per_border=7)
-result = morph_images(image1, image2, extractor, points_per_border=0)
+image1 = cv2.imread("first.jpg", cv2.IMREAD_COLOR)
+image2 = cv2.imread("second.jpg", cv2.IMREAD_COLOR)
+if image1 is None or image2 is None:
+    raise FileNotFoundError("Could not read first.jpg or second.jpg")
 
-# Cap the shortest detector-input side at 640 px, then morph full-size inputs.
-result = morph_images(
-    image1,
-    image2,
-    extractor,
-    landmark_extraction_short_side=640,
+with MediaPipeLandmarkExtractor("face_landmarker.task") as extractor:
+    result = morph_images(image1, image2, extractor)
+
+if not cv2.imwrite("output.png", result):
+    raise OSError("Could not write output.png")
+```
+
+Set `warping_factor` and `blending_factor` independently when the facial shape
+and texture should progress at different rates:
+
+```python
+with MediaPipeLandmarkExtractor("face_landmarker.task") as extractor:
+    result = morph_images(
+        image1,
+        image2,
+        extractor,
+        warping_factor=0.25,
+        blending_factor=0.75,
+    )
+```
+
+## Python API
+
+The high-level entry points and both landmark extractors are available directly
+from `ubo_morph`. Choose one extractor and provide its compatible model file:
+
+```python
+from ubo_morph import (
+    DlibLandmarkExtractor,
+    MediaPipeLandmarkExtractor,
+    morph_images,
+    morph_with_landmarks,
 )
 
-# Select one of the exact backend names: "cpu" or "cupy".
-result = morph_images(image1, image2, extractor, backend="cupy")
+# MediaPipe returns its face-landmarker mesh.
+with MediaPipeLandmarkExtractor("face_landmarker.task") as extractor:
+    result = morph_images(image1, image2, extractor)
+
+# Dlib is an alternative extractor that requires a 68-point shape predictor.
+with DlibLandmarkExtractor("shape_predictor_68_face_landmarks.dat") as extractor:
+    result = morph_images(image1, image2, extractor)
+```
+
+Once an extractor is selected, pass it to `morph_images` with any pipeline
+options:
+
+```python
+with MediaPipeLandmarkExtractor("face_landmarker.task") as extractor:
+    # Control the number of points added to each image edge, or disable them.
+    result = morph_images(image1, image2, extractor, points_per_border=7)
+    result = morph_images(image1, image2, extractor, points_per_border=0)
+
+    # Cap the shortest detector-input side at 640 px, then morph full-size inputs.
+    result = morph_images(
+        image1,
+        image2,
+        extractor,
+        landmark_extraction_short_side=640,
+    )
+
+    # Select one of the exact backend names: "cpu" or "cupy".
+    result = morph_images(image1, image2, extractor, backend="cupy")
 ```
 
 `cpu` is the default. Backend selection is explicit: unavailable accelerators
@@ -50,13 +139,10 @@ from ubo_morph.morphing.cpu import CPUBackend
 backend = CPUBackend()
 ```
 
-Install CuPy support before selecting `backend="cupy"`:
+Install CuPy support together with at least one landmark extractor before
+selecting `backend="cupy"`.
 
-```console
-pip install "ubo-morph[cupy]"
-```
-
-## Landmark extractors
+## Extractors and backends
 
 Concrete dlib and MediaPipe extractors are available from the top-level package.
 Both require a compatible model file supplied by the caller and select the
@@ -72,14 +158,13 @@ with MediaPipeLandmarkExtractor("face_landmarker.task") as extractor:
     mediapipe_result = morph_images(image1, image2, extractor)
 ```
 
-Install only the backend you need:
+Install dlib instead of MediaPipe with:
 
 ```console
 pip install "ubo-morph[dlib]"
-pip install "ubo-morph[mediapipe]"
 ```
 
-## Command-line interface
+## CLI reference
 
 Morph one pair directly with either landmark backend:
 
@@ -92,10 +177,8 @@ Pass multiple linked factors with `--factor`; each value is used for both
 warping and blending. Separate factor lists produce their Cartesian product:
 
 ```console
-ubo-morph first.jpg second.jpg --extractor mediapipe --model face_landmarker.task \
-  --factor 0.25 0.50 0.75
-ubo-morph first.jpg second.jpg --extractor mediapipe --model face_landmarker.task \
-  --warping-factor 0.25 0.50 --blending-factor 0.50 0.75
+ubo-morph first.jpg second.jpg --extractor mediapipe --model face_landmarker.task --factor 0.25 0.50 0.75
+ubo-morph first.jpg second.jpg --extractor mediapipe --model face_landmarker.task --warping-factor 0.25 0.50 --blending-factor 0.50 0.75
 ```
 
 Batch input is passed as a positional CSV path:
@@ -119,7 +202,7 @@ remaining pairs.
 
 Use `--intermediate-results` to create a factor-qualified `M_...png/` directory
 containing `morphed.png` and every image-valued intermediate field from
-`MorphResult`. Each original image remains unchanged and is accompanied by an
+`MorphResult`. Every saved image, including `morphed.png`, has an accompanying
 `_annotated.png` version containing indexed facial landmarks, unindexed border
 points, and the Delaunay triangulation used by the morph. The intermediate
 images include the aligned images before color equalization, the image actually
@@ -156,3 +239,10 @@ uv run pytest -v
 uv run ruff check .
 uv run ty check
 ```
+
+## Contributing
+
+Contributions are welcome. Create a focused branch, add or update tests for
+behavior changes, and run the validation commands above before opening a pull
+request. Keep changes scoped to the issue being addressed and include a clear
+description of the behavior change in the pull request.
