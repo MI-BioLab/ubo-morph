@@ -25,30 +25,40 @@ jobs:
       github.event.workflow_run.head_branch == github.event.repository.default_branch
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Required to commit the version, push the tag, and create the GitHub release.
+      contents: read
     outputs:
       released: ${{ steps.semantic-release.outputs.released || 'false' }}
       tag: ${{ steps.semantic-release.outputs.tag }}
     steps:
+      - name: Create release app token
+        id: release-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: true
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: main
+          token: ${{ steps.release-app-token.outputs.token }}
 
       - name: Verify commit is the current main tip
         env:
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
           test "$(git rev-parse FETCH_HEAD)" = "$EXPECTED_SHA"
 
       - name: Create release
         id: semantic-release
         uses: python-semantic-release/python-semantic-release@39dd2052f2ce8282a5d932c31d58a2ca06d2550e # v10.6.1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.release-app-token.outputs.token }}
           build: false
 
   build:
