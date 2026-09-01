@@ -8,10 +8,20 @@
   "minimumReleaseAge": "7 days",
   "minimumReleaseAgeBehaviour": "timestamp-required",
   "internalChecksFilter": "strict",
+  "constraintsFiltering": "strict",
   "lockFileMaintenance": {
     "enabled": true
   },
   "packageRules": [
+    {
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchDepTypes": [
+        "requires-python"
+      ],
+      "enabled": false
+    },
     {
       "matchManagers": [
         "github-actions"
