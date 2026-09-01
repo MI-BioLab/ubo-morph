@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the original paper describing the morphing algorithm it implements."
+title: "ubo-morph"
+type: software
+authors:
+  - name: "Machine Intelligence at Biometric Systems Laboratory (MI@BioLab), University of Bologna, Cesena"
+url: "https://github.com/MI-BioLab/ubo-morph"
+preferred-citation:
+  type: conference-paper
+  title: "Decoupling texture blending and shape warping in face morphing"
+  authors:
+    - family-names: "Ferrara"
+      given-names: "Matteo"
+    - family-names: "Franco"
+      given-names: "Annalisa"
+    - family-names: "Maltoni"
+      given-names: "Davide"
+  collection-title: "2019 International Conference of the Biometrics Special Interest Group (BIOSIG)"
+  conference:
+    name: "BIOSIG 2019"
+    city: "Darmstadt"
+    country: "DE"
+    date-start: "2019-09-18"
+    date-end: "2019-09-20"
+  publisher:
+    name: "Gesellschaft für Informatik e.V."
+  series: "LNI"
+  volume: "P-296"
+  start: 25
+  end: 33
+  year: 2019
+  url: "https://dl.gi.de/handle/20.500.12116/34232"
