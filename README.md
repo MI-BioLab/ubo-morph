@@ -180,6 +180,21 @@ morphed = morph_images(image1, image2, extractor, backend="cupy")
 If a backend's dependencies aren't installed, `get_backend()` (and the CLI) raise
 a clear `ImportError` telling you which extra to install.
 
+## Citation
+
+If you use `ubo-morph` in your research, please cite the original paper:
+
+```
+@inproceedings{ferrara2019decoupling,
+  title={Decoupling texture blending and shape warping in face morphing},
+  author={Ferrara, Matteo and Franco, Annalisa and Maltoni, Davide},
+  booktitle={2019 international conference of the biometrics special interest group (BIOSIG)},
+  pages={1--5},
+  year={2019},
+  organization={IEEE}
+}
+```
+
 ## Contributing
 
 Contributions are welcome! This project uses [uv](https://docs.astral.sh/uv/) for
